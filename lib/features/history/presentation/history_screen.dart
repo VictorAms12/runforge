@@ -79,7 +79,7 @@ class _WorkoutCard extends StatelessWidget {
                   children: [
                     Text(workout.workoutType == 'interval' ? 'Treino intervalado' : 'Corrida livre', style: const TextStyle(fontWeight: FontWeight.w900)),
                     const SizedBox(height: 3),
-                    Text(shortDate(workout.startedAt), style: const TextStyle(color: Colors.white45, fontSize: 12)),
+                    Text(shortDate(workout.startedAt), style: const TextStyle(color: Colors.white54, fontSize: 12)),
                   ],
                 ),
               ),
