@@ -48,8 +48,8 @@ Ele é executado automaticamente quando:
 
 1. Instala Flutter 3.47.1.
 2. Executa `flutter pub get`.
-3. Valida formatação com `dart format`.
-4. Executa `flutter analyze`.
+3. Normaliza a formatação das fontes com `dart format`.
+4. Executa `flutter analyze --no-fatal-infos`: erros e warnings continuam bloqueando o pipeline, enquanto diagnósticos de nível `info` permanecem visíveis sem impedir a compilação.
 5. Executa `flutter test`.
 
 **Android** — em `push`, tags e execução manual:
