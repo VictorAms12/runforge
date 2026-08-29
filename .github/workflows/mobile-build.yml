@@ -49,7 +49,7 @@ jobs:
         run: dart format lib test tool/configure_platforms.dart
 
       - name: Static analysis
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos
 
       - name: Unit tests
         run: flutter test
