@@ -1,0 +1,3 @@
+<!-- Add directly under the <manifest> tag in android/app/src/main/AndroidManifest.xml -->
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
