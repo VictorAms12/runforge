@@ -13,3 +13,9 @@ ios/.symlinks/
 *.iml
 /android/
 /ios/
+
+# Never commit Android signing material.
+*.jks
+*.keystore
+**/key.properties
+.runforge-signing/
