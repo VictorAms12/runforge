@@ -7,7 +7,7 @@ if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
 $root = Split-Path -Parent $PSScriptRoot
 $temp = Join-Path ([System.IO.Path]::GetTempPath()) ("runforge_" + [guid]::NewGuid().ToString('N'))
 
-Write-Host 'Gerando shells Android/iOS com a versão local do Flutter...'
+Write-Host 'Gerando shells Android/iOS com identidade fixa do RunForge...'
 flutter create $temp --project-name runforge --org com.runforge --platforms=android,ios | Out-Host
 
 foreach ($platform in @('android', 'ios')) {
@@ -18,57 +18,43 @@ foreach ($platform in @('android', 'ios')) {
 if (Test-Path (Join-Path $temp '.metadata')) {
   Copy-Item (Join-Path $temp '.metadata') (Join-Path $root '.metadata') -Force
 }
+Remove-Item $temp -Recurse -Force
 
-$manifestPath = Join-Path $root 'android/app/src/main/AndroidManifest.xml'
-$manifest = Get-Content $manifestPath -Raw
-if ($manifest -notmatch 'ACCESS_FINE_LOCATION') {
-  $permissions = @'
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-'@
-  $manifestReplacement = '$1' + "`r`n" + $permissions
-  $manifest = [regex]::Replace($manifest, '(<manifest[^>]*>)', $manifestReplacement, 1)
-  [System.IO.File]::WriteAllText($manifestPath, $manifest, [System.Text.UTF8Encoding]::new($false))
-}
+$privateSigningDir = Join-Path $env:USERPROFILE '.runforge\signing'
+$privateKeystore = Join-Path $privateSigningDir 'runforge-release.jks'
+$privateCredentials = Join-Path $privateSigningDir 'KEEP-PRIVATE.txt'
 
-$plistPath = Join-Path $root 'ios/Runner/Info.plist'
-$plist = Get-Content $plistPath -Raw
-if ($plist -notmatch 'NSLocationWhenInUseUsageDescription') {
-  $locationKey = @'
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>RunForge usa sua localização durante o treino para calcular distância e ritmo.</string>
-'@
-  $plist = [regex]::Replace($plist, '</dict>\s*</plist>', "$locationKey`r`n</dict>`r`n</plist>", 1)
-  [System.IO.File]::WriteAllText($plistPath, $plist, [System.Text.UTF8Encoding]::new($false))
-}
+if ((Test-Path $privateKeystore) -and (Test-Path $privateCredentials)) {
+  $saved = Get-Content $privateCredentials -Raw
+  $passwordMatch = [regex]::Match($saved, '(?m)^password=(.+)$')
+  $aliasMatch = [regex]::Match($saved, '(?m)^alias=(.+)$')
 
-$podfilePath = Join-Path $root 'ios/Podfile'
-if (Test-Path $podfilePath) {
-  $podfile = Get-Content $podfilePath -Raw
-  if ($podfile -notmatch 'BYPASS_PERMISSION_LOCATION_ALWAYS') {
-    $needle = 'flutter_additional_ios_build_settings(target)'
-    $replacement = @'
-flutter_additional_ios_build_settings(target)
-    if target.name == 'geolocator_apple'
-      target.build_configurations.each do |config|
-        config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
-          '$(inherited)',
-          'BYPASS_PERMISSION_LOCATION_ALWAYS=1'
-        ]
-      end
-    end
-'@
-    $podfile = $podfile.Replace($needle, $replacement)
-    [System.IO.File]::WriteAllText($podfilePath, $podfile, [System.Text.UTF8Encoding]::new($false))
+  if ($passwordMatch.Success -and $aliasMatch.Success) {
+    $password = $passwordMatch.Groups[1].Value.Trim()
+    $alias = $aliasMatch.Groups[1].Value.Trim()
+    $androidKeystore = Join-Path $root 'android/app/runforge-release.jks'
+    $keyProperties = Join-Path $root 'android/key.properties'
+
+    Copy-Item $privateKeystore $androidKeystore -Force
+    $properties = @"
+storePassword=$password
+keyPassword=$password
+keyAlias=$alias
+storeFile=runforge-release.jks
+"@
+    [System.IO.File]::WriteAllText($keyProperties, $properties, [System.Text.UTF8Encoding]::new($false))
+    Write-Host 'Assinatura Android persistente aplicada ao projeto local.' -ForegroundColor Green
   }
 }
 
-Remove-Item $temp -Recurse -Force
 Push-Location $root
 try {
+  dart run tool/configure_platforms.dart all | Out-Host
+  dart run tool/release_guard.dart | Out-Host
   flutter pub get | Out-Host
   Write-Host ''
   Write-Host 'RunForge pronto. Execute: flutter run' -ForegroundColor Green
+  Write-Host 'Para APK release: flutter build apk --release'
 } finally {
   Pop-Location
 }
