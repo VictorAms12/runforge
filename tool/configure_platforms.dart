@@ -1,5 +1,7 @@
 import 'dart:io';
 
+const applicationId = 'com.runforge.runforge';
+
 void main(List<String> args) {
   final requested = args.isEmpty ? 'all' : args.first.toLowerCase();
   const supported = {'android', 'ios', 'all'};
@@ -21,38 +23,126 @@ void main(List<String> args) {
 
 void _configureAndroid() {
   final manifest = File('android/app/src/main/AndroidManifest.xml');
-  if (!manifest.existsSync()) {
-    stderr.writeln('AndroidManifest.xml não encontrado. Execute flutter create primeiro.');
+  final gradle = File('android/app/build.gradle.kts');
+
+  if (!manifest.existsSync() || !gradle.existsSync()) {
+    stderr.writeln('Projeto Android não encontrado. Execute flutter create primeiro.');
     exitCode = 2;
     return;
   }
 
-  var content = manifest.readAsStringSync();
+  var manifestContent = manifest.readAsStringSync();
   const permissions = '''
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 ''';
 
-  if (!content.contains('android.permission.ACCESS_FINE_LOCATION')) {
-    final manifestTagEnd = content.indexOf('>');
+  if (!manifestContent.contains('android.permission.ACCESS_FINE_LOCATION')) {
+    final manifestTagEnd = manifestContent.indexOf('>');
     if (manifestTagEnd < 0) {
       stderr.writeln('Manifest Android inválido.');
       exitCode = 2;
       return;
     }
 
-    content = '${content.substring(0, manifestTagEnd + 1)}\n$permissions'
-        '${content.substring(manifestTagEnd + 1)}';
-    manifest.writeAsStringSync(content);
+    manifestContent = '${manifestContent.substring(0, manifestTagEnd + 1)}\n$permissions'
+        '${manifestContent.substring(manifestTagEnd + 1)}';
+    manifest.writeAsStringSync(manifestContent);
   }
 
-  stdout.writeln('Android: permissões de localização configuradas.');
+  var gradleContent = gradle.readAsStringSync();
+  if (!gradleContent.contains('namespace = "$applicationId"') ||
+      !gradleContent.contains('applicationId = "$applicationId"')) {
+    stderr.writeln(
+      'Application ID inesperado. O RunForge deve permanecer como $applicationId para aceitar atualizações por cima.',
+    );
+    exitCode = 2;
+    return;
+  }
+
+  gradleContent = _configureAndroidSigning(gradleContent);
+  gradle.writeAsStringSync(gradleContent);
+
+  stdout.writeln('Android: identidade fixa, permissões e assinatura configuradas.');
+}
+
+String _configureAndroidSigning(String content) {
+  const marker = '// RUNFORGE_RELEASE_SIGNING_PROPERTIES';
+  if (content.contains(marker)) return content;
+
+  if (!content.contains('import java.util.Properties')) {
+    content = 'import java.io.FileInputStream\nimport java.util.Properties\n\n$content';
+  }
+
+  const propertiesBlock = '''
+// RUNFORGE_RELEASE_SIGNING_PROPERTIES
+val runforgeKeystoreProperties = Properties()
+val runforgeKeystorePropertiesFile = rootProject.file("key.properties")
+if (runforgeKeystorePropertiesFile.exists()) {
+    runforgeKeystoreProperties.load(FileInputStream(runforgeKeystorePropertiesFile))
+}
+''';
+
+  if (!content.contains('\nandroid {')) {
+    stderr.writeln('build.gradle.kts Android inválido: bloco android não encontrado.');
+    exitCode = 2;
+    return content;
+  }
+  content = content.replaceFirst('\nandroid {', '\n$propertiesBlock\nandroid {');
+
+  const buildTypesNeedle = '    buildTypes {';
+  const signingConfigBlock = '''    signingConfigs {
+        if (runforgeKeystorePropertiesFile.exists()) {
+            create("release") {
+                keyAlias = runforgeKeystoreProperties.getProperty("keyAlias")
+                keyPassword = runforgeKeystoreProperties.getProperty("keyPassword")
+                storeFile = runforgeKeystoreProperties.getProperty("storeFile")?.let { file(it) }
+                storePassword = runforgeKeystoreProperties.getProperty("storePassword")
+            }
+        }
+    }
+
+    buildTypes {''';
+
+  if (!content.contains(buildTypesNeedle)) {
+    stderr.writeln('build.gradle.kts Android inválido: buildTypes não encontrado.');
+    exitCode = 2;
+    return content;
+  }
+  content = content.replaceFirst(buildTypesNeedle, signingConfigBlock);
+
+  const debugSigning = '            signingConfig = signingConfigs.getByName("debug")';
+  const persistentSigning = '''            signingConfig = if (runforgeKeystorePropertiesFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }''';
+
+  if (!content.contains(debugSigning)) {
+    stderr.writeln(
+      'Aviso: assinatura debug padrão não encontrada; revise o template Flutter antes de publicar.',
+    );
+  } else {
+    content = content.replaceFirst(debugSigning, persistentSigning);
+  }
+
+  return content;
 }
 
 void _configureIos() {
   final plist = File('ios/Runner/Info.plist');
-  if (!plist.existsSync()) {
-    stderr.writeln('Info.plist não encontrado. Execute flutter create primeiro.');
+  final project = File('ios/Runner.xcodeproj/project.pbxproj');
+  if (!plist.existsSync() || !project.existsSync()) {
+    stderr.writeln('Projeto iOS não encontrado. Execute flutter create primeiro.');
+    exitCode = 2;
+    return;
+  }
+
+  final projectContent = project.readAsStringSync();
+  if (!projectContent.contains('PRODUCT_BUNDLE_IDENTIFIER = $applicationId;')) {
+    stderr.writeln(
+      'Bundle ID inesperado. O RunForge deve permanecer como $applicationId para manter a identidade do app.',
+    );
     exitCode = 2;
     return;
   }
@@ -97,5 +187,5 @@ void _configureIos() {
     }
   }
 
-  stdout.writeln('iOS: permissão When In Use configurada.');
+  stdout.writeln('iOS: bundle ID fixo e permissão When In Use configurados.');
 }
