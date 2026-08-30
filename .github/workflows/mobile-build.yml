@@ -21,6 +21,7 @@ concurrency:
 env:
   FLUTTER_VERSION: '3.47.1'
   JAVA_VERSION: '17'
+  RUNFORGE_APPLICATION_ID: 'com.runforge.runforge'
 
 jobs:
   quality:
@@ -46,7 +47,10 @@ jobs:
         run: flutter pub get
 
       - name: Format sources
-        run: dart format lib test tool/configure_platforms.dart
+        run: dart format lib test tool/configure_platforms.dart tool/release_guard.dart
+
+      - name: Update compatibility guard
+        run: dart run tool/release_guard.dart
 
       - name: Static analysis
         run: flutter analyze --no-fatal-infos
@@ -81,25 +85,69 @@ jobs:
       - name: Generate Android project
         run: flutter create . --platforms=android --project-name=runforge --org=com.runforge
 
-      - name: Configure Android permissions
+      - name: Configure persistent release signing
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+        run: |
+          APP_VERSION=$(awk '/^version:/ {print $2}' pubspec.yaml)
+          SAFE_VERSION=${APP_VERSION/+/-}
+          echo "RUNFORGE_APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
+
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_KEY_ALIAS" ] && [ -n "$ANDROID_KEY_PASSWORD" ] && [ -n "$ANDROID_STORE_PASSWORD" ]; then
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/runforge-release.jks
+            cat > android/key.properties <<EOF
+          storePassword=$ANDROID_STORE_PASSWORD
+          keyPassword=$ANDROID_KEY_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          storeFile=runforge-release.jks
+          EOF
+            echo "RUNFORGE_SIGNED=true" >> "$GITHUB_ENV"
+            echo "ANDROID_ARTIFACT_NAME=runforge-android-updateable-$SAFE_VERSION" >> "$GITHUB_ENV"
+          else
+            echo "RUNFORGE_SIGNED=false" >> "$GITHUB_ENV"
+            echo "ANDROID_ARTIFACT_NAME=runforge-android-test-NOT-UPDATABLE-$SAFE_VERSION" >> "$GITHUB_ENV"
+            echo '::warning::Signing Secrets ausentes. Este APK será apenas de teste e pode não atualizar por cima de outro build.'
+            if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+              echo '::error::Tags de release exigem a chave persistente. Execute tool/setup_android_signing.ps1 e configure os Secrets.'
+              exit 1
+            fi
+          fi
+
+      - name: Configure Android platform
         run: dart run tool/configure_platforms.dart android
 
       - name: Install dependencies
         run: flutter pub get
 
       - name: Build release APK
-        run: flutter build apk --release --build-number=${{ github.run_number }}
+        run: flutter build apk --release
 
       - name: Build release AAB
-        run: flutter build appbundle --release --build-number=${{ github.run_number }}
+        run: flutter build appbundle --release
+
+      - name: Write update metadata
+        shell: bash
+        run: |
+          mkdir -p build
+          {
+            echo "applicationId=${RUNFORGE_APPLICATION_ID}"
+            echo "version=${RUNFORGE_APP_VERSION}"
+            echo "persistentSigning=${RUNFORGE_SIGNED}"
+            echo "database=runforge.db"
+          } > build/update-info.txt
 
       - name: Upload Android artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: runforge-android-${{ github.run_number }}
+          name: ${{ env.ANDROID_ARTIFACT_NAME }}
           path: |
             build/app/outputs/flutter-apk/app-release.apk
             build/app/outputs/bundle/release/app-release.aab
+            build/update-info.txt
           if-no-files-found: error
           retention-days: 14
 
@@ -124,14 +172,14 @@ jobs:
       - name: Generate iOS project
         run: flutter create . --platforms=ios --project-name=runforge --org=com.runforge
 
-      - name: Configure iOS permissions
+      - name: Configure iOS platform
         run: dart run tool/configure_platforms.dart ios
 
       - name: Install dependencies
         run: flutter pub get
 
       - name: Build iOS without code signing
-        run: flutter build ios --release --no-codesign --build-number=${{ github.run_number }}
+        run: flutter build ios --release --no-codesign
 
       - name: Package unsigned iOS app
         run: ditto -c -k --sequesterRsrc --keepParent build/ios/iphoneos/Runner.app build/ios/runforge-ios-unsigned.zip
