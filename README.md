@@ -2,7 +2,8 @@
 
 Aplicativo mobile Flutter para acompanhamento de corrida com foco em legibilidade durante o treino, progressão guiada, persistência local e UX esportiva premium.
 
-**Versão atual: 1.1.0**
+**Versão atual: 1.1.1**  
+**Application ID / Bundle ID permanente:** `com.runforge.runforge`
 
 ## Stack
 
@@ -18,116 +19,79 @@ Aplicativo mobile Flutter para acompanhamento de corrida com foco em legibilidad
 - Dashboard com volume semanal/mensal e metas em foco.
 - Corrida livre com cronômetro, GPS, distância, pace atual, pace médio, calorias e splits.
 - Treino intervalado fechado com **aquecimento + corrida + recuperação + quantidade de ciclos + desaquecimento**.
-- Templates rápidos de intervalado (1/2 iniciante, 2/1 progressão, 5/2 resistência e HIIT curto).
-- Ciclo atual/total, progresso da etapa e progresso total do treino.
-- Encerramento automático do cronômetro ao concluir todo o intervalado.
-- Auto-pause por parada real, com retomada automática ao voltar a se movimentar.
+- Templates rápidos de intervalado.
+- Ciclo atual/total e progresso completo da sessão.
+- Encerramento automático do intervalado.
+- Auto-pause e retomada automática.
 - Auto Split de 1 km e Split manual.
-- Alertas hápticos + som do sistema nas transições de intervalo.
-- Pause/Resume, Split, Finish e trava de tela por long press.
-- Perfil corporal local: nome, peso, altura, idade e sexo.
-- Estimativa calórica por MET + componente basal Mifflin-St Jeor.
-- Metas diárias, semanais e mensais por km ou dias treinados.
-- Progresso automático de metas com anel animado e conquista ao atingir o alvo.
-- Checklist pré/pós-treino, itens customizados, reset e swipe para excluir itens próprios.
-- Histórico de treinos com distância, tempo, pace, kcal, RPE, splits e notas.
-- RPE pós-treino de 1 a 10 para acompanhar esforço percebido.
-- Plano **Do zero aos 5 km**: 8 semanas / 24 sessões com treino do dia no Dashboard.
-- Tela Progresso com volume das últimas 8 semanas e RPE médio.
-- Recordes pessoais: maior distância, maior duração, melhor pace médio, melhor split de 1 km e melhor 5 km.
-- Dark Mode premium padrão (`#121212` + Neon Lime), com Material 3.
-- SQLite schema v4 com migrações incrementais `onUpgrade`, preservando instalações v1-v3.
+- Alertas hápticos + som do sistema nas transições.
+- Pause/Resume, Finish e trava de tela.
+- Perfil corporal e estimativa calórica local.
+- Metas diárias, semanais e mensais.
+- Checklist pré/pós-treino.
+- Histórico com distância, tempo, pace, kcal, RPE, splits e notas.
+- Plano **Do zero aos 5 km**, com 8 semanas / 24 sessões e Treino de Hoje.
+- Tela Progresso com últimas 8 semanas, RPE e recordes pessoais.
+- Dark Mode premium padrão (`#121212` + Neon Lime), Material 3.
+- SQLite schema v4 com migrações incrementais.
 
-## GitHub Actions: compilação automática
+## Atualização por cima — requisito permanente
 
-O repositório já inclui o workflow:
+O RunForge possui uma política explícita para que novas versões possam substituir a anterior **sem apagar histórico, perfil, metas ou progresso**.
 
-```text
-.github/workflows/mobile-build.yml
-```
+Veja [`UPDATE_POLICY.md`](UPDATE_POLICY.md).
 
-Ele é executado automaticamente quando:
-
-- há `push` na branch `main`;
-- uma tag `v*` é enviada, por exemplo `v1.0.0`;
-- um Pull Request é aberto/atualizado contra `main`;
-- você inicia manualmente pela aba **Actions** do GitHub.
-
-### O que o workflow faz
-
-**Analyze & Test**
-
-1. Instala Flutter 3.47.1.
-2. Executa `flutter pub get`.
-3. Normaliza a formatação das fontes com `dart format`.
-4. Executa `flutter analyze --no-fatal-infos`: erros e warnings continuam bloqueando o pipeline, enquanto diagnósticos de nível `info` permanecem visíveis sem impedir a compilação.
-5. Executa `flutter test`.
-
-**Android** — em `push`, tags e execução manual:
-
-1. Usa JDK 17.
-2. Gera o shell Android com `flutter create`.
-3. Aplica permissões de localização automaticamente.
-4. Compila APK Release.
-5. Compila Android App Bundle (AAB).
-6. Publica os arquivos como Artifact por 14 dias.
-
-Arquivos produzidos:
+Os invariantes principais são:
 
 ```text
-build/app/outputs/flutter-apk/app-release.apk
-build/app/outputs/bundle/release/app-release.aab
+Android applicationId = com.runforge.runforge
+iOS Bundle ID        = com.runforge.runforge
+SQLite database      = runforge.db
 ```
 
-Artifact no GitHub:
+Além disso:
+
+- a chave de assinatura Android distribuída deve permanecer a mesma;
+- toda nova versão precisa de `versionCode` maior;
+- mudanças de banco devem usar migrations incrementais;
+- o CI executa `tool/release_guard.dart` para detectar quebras dessas regras.
+
+### Versionamento
+
+O `pubspec.yaml` é a fonte de verdade. O BUILD segue:
 
 ```text
-runforge-android-<numero-do-run>
+BUILD = MAJOR * 10000 + MINOR * 100 + PATCH
 ```
 
-**iOS** — em `push`, tags e execução manual:
-
-1. Usa runner macOS.
-2. Gera o shell iOS com `flutter create`.
-3. Configura `NSLocationWhenInUseUsageDescription`.
-4. Compila em Release com `--no-codesign`.
-5. Compacta `Runner.app` e publica como Artifact.
-
-Artifact:
+Exemplo:
 
 ```text
-runforge-ios-unsigned-<numero-do-run>
+1.1.1+10101
+1.2.0+10200
+1.2.3+10203
 ```
 
-> O build iOS comprova que o projeto compila, mas não é um IPA assinado para instalação/distribuição. Para TestFlight/App Store é necessário configurar certificado, provisioning profile e assinatura Apple.
+O workflow não usa mais `github.run_number` como `versionCode`, evitando versões inconsistentes entre pipelines.
 
-### Como baixar o APK pelo GitHub
+## Configuração única da assinatura Android
 
-1. Abra o repositório no GitHub.
-2. Entre em **Actions**.
-3. Abra **Flutter Mobile CI**.
-4. Abra a execução concluída com sucesso.
-5. Na seção **Artifacts**, baixe `runforge-android-<numero>`.
-6. Extraia o ZIP do Artifact; dentro estará `app-release.apk` e o `.aab`.
+Para que APKs futuros sejam realmente instaláveis por cima uns dos outros, configure uma chave persistente **uma vez**.
 
-### Rodar a compilação manualmente
+No Windows, com JDK 17 e GitHub CLI (`gh`) instalados/autenticados:
 
-Na aba **Actions**:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tool\setup_android_signing.ps1
+```
 
-1. Selecione **Flutter Mobile CI**.
-2. Clique em **Run workflow**.
-3. Selecione `main`.
-4. Clique em **Run workflow** novamente.
+O script:
 
-O workflow também pode ser disparado simplesmente fazendo um novo commit/push em `main`.
+1. cria `runforge-release.jks` fora do repositório;
+2. cria um backup privado em `%USERPROFILE%\.runforge\signing`;
+3. envia a chave e credenciais para GitHub Actions Secrets;
+4. nunca faz commit do `.jks`, senha ou `key.properties`.
 
-## Assinatura Android
-
-O workflow atual produz um build Release de desenvolvimento/teste usando a configuração padrão gerada pelo Flutter. Ele é adequado para baixar o APK e testar o aplicativo.
-
-Para publicar o `.aab` na Google Play, configure uma **keystore de produção** e armazene as credenciais usando **GitHub Actions Secrets**. Não envie `.jks`, senhas ou `key.properties` para o Git.
-
-Uma evolução futura recomendada é adicionar secrets como:
+Secrets configurados:
 
 ```text
 ANDROID_KEYSTORE_BASE64
@@ -136,86 +100,141 @@ ANDROID_KEY_PASSWORD
 ANDROID_STORE_PASSWORD
 ```
 
-## Projeto nativo gerado sob demanda
+**Não perca o backup da chave.** Ela passa a ser parte da identidade das instalações Android distribuídas diretamente por APK.
 
-As pastas `android/` e `ios/` não precisam ficar versionadas. O projeto mantém o código Flutter como fonte principal e gera os shells nativos com a versão fixada do Flutter durante o CI.
+> Builds antigos do RunForge podem ter sido assinados com uma chave de debug temporária do runner. Nesse caso poderá ser necessária uma última desinstalação antes de instalar o primeiro Artifact `runforge-android-updateable-*`. Depois dessa transição, mantenha sempre a chave persistente.
 
-O script usado para aplicar as customizações é:
+## GitHub Actions
+
+Workflow:
 
 ```text
-tool/configure_platforms.dart
+.github/workflows/mobile-build.yml
 ```
 
-Isso evita manter templates Android/iOS antigos no repositório e mantém a geração reproduzível.
+Executa em:
+
+- `push` para `main`;
+- tags `v*`;
+- Pull Requests para `main`;
+- execução manual em **Actions → Flutter Mobile CI → Run workflow**.
+
+### Analyze & Test
+
+1. instala Flutter 3.47.1;
+2. executa `flutter pub get`;
+3. formata fontes;
+4. executa `tool/release_guard.dart`;
+5. executa `flutter analyze --no-fatal-infos`;
+6. executa `flutter test`.
+
+### Android
+
+O CI sempre gera o shell com:
+
+```text
+--project-name=runforge --org=com.runforge
+```
+
+e valida que o resultado continua sendo `com.runforge.runforge`.
+
+Se os Secrets de assinatura persistente estiverem disponíveis:
+
+```text
+runforge-android-updateable-<versão-build>
+```
+
+O Artifact contém:
+
+```text
+app-release.apk
+app-release.aab
+update-info.txt
+```
+
+`update-info.txt` registra `applicationId`, versão, nome do banco e se a assinatura persistente foi usada.
+
+Se os Secrets ainda não existirem, o CI pode gerar um APK apenas para testes:
+
+```text
+runforge-android-test-NOT-UPDATABLE-<versão-build>
+```
+
+Não use esse Artifact como base para distribuição contínua. Tags `v*` falham propositalmente quando a assinatura persistente não está configurada.
+
+### iOS
+
+O CI:
+
+- fixa o Bundle ID em `com.runforge.runforge`;
+- configura a permissão de localização;
+- compila Release com `--no-codesign`;
+- publica `runforge-ios-unsigned-*`.
+
+Para instalação/distribuição real no iOS ainda será necessária assinatura Apple/TestFlight/App Store.
 
 ## Banco local e migrações
 
-Arquivo: `lib/core/database/app_database.dart`
+Arquivo:
 
-- **v1:** `users`, `workouts`, `goals`, `checklists`.
-- **v2:** adiciona `avg_speed_kmh` e `intensity` em `workouts`.
-- **v3:** adiciona `completed_at` em `goals` e `position` em `checklists`.
-- **v4 (RunForge 1.1):** adiciona `rpe`, `splits_json`, `plan_session_index`, `template_id` e `auto_paused_seconds` em `workouts`.
-- Instalação nova cria diretamente o schema mais recente.
-- Upgrade executa somente as etapas ausentes dentro da transação do próprio `sqflite`.
+```text
+lib/core/database/app_database.dart
+```
 
-Isso permite atualizar a aplicação instalada sem apagar o banco do usuário.
+Histórico atual:
 
-## Como executar localmente no Windows
+- **v1:** `users`, `workouts`, `goals`, `checklists`;
+- **v2:** `avg_speed_kmh` e `intensity`;
+- **v3:** `completed_at` e `position`;
+- **v4:** `rpe`, `splits_json`, `plan_session_index`, `template_id` e `auto_paused_seconds`.
 
-Este projeto contém um bootstrap que gera os shells Android/iOS usando a versão do Flutter instalada na máquina.
+Instalações novas criam diretamente o schema atual. Instalações antigas percorrem somente as migrations que faltam.
 
-1. Clone o repositório.
-2. Abra PowerShell na pasta `runforge`.
-3. Execute:
+A regra para versões futuras é: **nunca apagar `runforge.db` para resolver migration**.
+
+## Desenvolvimento local no Windows
+
+Bootstrap:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\tool\bootstrap.ps1
 ```
 
-4. Com Android conectado ou emulador aberto:
+O bootstrap:
+
+- gera Android/iOS com identidade fixa;
+- aplica permissões;
+- executa o release guard;
+- se existir o backup criado por `setup_android_signing.ps1`, aplica a mesma chave ao Android local.
+
+Executar:
 
 ```powershell
 flutter run
 ```
 
-Para gerar APK local:
+Gerar APK Release:
 
 ```powershell
 flutter build apk --release
 ```
 
-> iOS precisa ser compilado em macOS com Xcode.
+Com a chave persistente já configurada localmente, esse APK mantém a mesma identidade dos builds assinados do GitHub.
 
 ## Requisitos importantes
 
-O `geolocator` 14.x requer Flutter moderno. O CI está fixado em Flutter 3.47.1 para reduzir diferenças entre builds e evitar que uma atualização futura do canal stable altere o resultado sem revisão.
+O `geolocator` 14.x requer Flutter moderno. O CI está fixado em Flutter 3.47.1 para reduzir diferenças entre builds.
 
-O app usa localização somente enquanto a interface do treino está em uso. Não há tracking contínuo em background nesta versão.
+O app atualmente usa localização enquanto a interface de treino está em uso. Tracking contínuo em background permanece planejado para versão futura.
 
-## Permissões
-
-`tool/configure_platforms.dart` e `tool/bootstrap.ps1` configuram:
-
-- Android: `ACCESS_FINE_LOCATION` e `ACCESS_COARSE_LOCATION`.
-- iOS: `NSLocationWhenInUseUsageDescription`.
-- iOS/Podfile: `BYPASS_PERMISSION_LOCATION_ALWAYS=1` quando o Podfile permite a configuração.
-
-Os snippets também ficam em `platform_templates/` para referência manual.
-
-## Estrutura
+## Estrutura resumida
 
 ```text
-.github/
-└── workflows/
-    └── mobile-build.yml
+.github/workflows/mobile-build.yml
+UPDATE_POLICY.md
+ROADMAP.md
 lib/
 ├── core/
-│   ├── database/
-│   ├── theme/
-│   ├── utils/
-│   ├── widgets/
-│   └── providers.dart
 ├── features/
 │   ├── home/
 │   ├── workout/
@@ -229,16 +248,13 @@ lib/
 └── main.dart
 tool/
 ├── bootstrap.ps1
-└── configure_platforms.dart
+├── configure_platforms.dart
+├── release_guard.dart
+└── setup_android_signing.ps1
 ```
-
-## Observações de precisão
-
-- GPS de smartphone tem ruído; o app ignora pontos com precisão pior que 50 m e saltos individuais acima de 120 m.
-- Pace atual usa a velocidade reportada pelo GPS quando ela é suficientemente alta; pace médio usa tempo/distância acumulados.
-- A estimativa de calorias é orientativa. Não substitui calorimetria indireta nem avaliação médica.
-- O `Stopwatch` é a fonte do tempo da sessão, reduzindo drift do `Timer` de atualização da UI.
 
 ## Próximas versões
 
-As melhorias que ficaram fora da v1.1 estão registradas em [`ROADMAP.md`](ROADMAP.md), organizadas por versão: mapa/rota, voz, exportação GPX/CSV, check-in de fadiga/dor, Health Connect/Apple Health, wearables, backup e tracking em background.
+As melhorias planejadas estão em [`ROADMAP.md`](ROADMAP.md): mapa/rota, voz, GPX/CSV, check-in de fadiga/dor, Health Connect/Apple Health, wearables, backup, sincronização e tracking em background.
+
+Todas elas devem obedecer à política de atualização sem reinstalação definida em [`UPDATE_POLICY.md`](UPDATE_POLICY.md).
