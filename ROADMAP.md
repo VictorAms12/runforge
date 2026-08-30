@@ -2,6 +2,8 @@
 
 Este arquivo registra melhorias deliberadamente deixadas para versões futuras. A v1.1 prioriza a experiência central de treinar, concluir sessões e acompanhar evolução sem depender de conta ou nuvem.
 
+> **Regra transversal de todas as versões:** cada release deve respeitar [`UPDATE_POLICY.md`](UPDATE_POLICY.md), mantendo identidade do app, assinatura persistente, versionCode crescente e migrações SQLite que preservem os dados do usuário. Atualização por cima é requisito de release, não melhoria opcional.
+
 ## v1.2 — Corrida e rota
 
 - Persistência dos pontos GPS e desenho da rota em mapa.
