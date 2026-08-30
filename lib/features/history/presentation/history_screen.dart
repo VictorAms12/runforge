@@ -20,8 +20,21 @@ class HistoryScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('HISTÓRICO', style: TextStyle(color: AppTheme.neonLime, fontWeight: FontWeight.w900, letterSpacing: 2)),
-            Text('Seu volume de treino', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
+            const Text(
+              'HISTÓRICO',
+              style: TextStyle(
+                color: AppTheme.neonLime,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 2,
+              ),
+            ),
+            Text(
+              'Seu volume de treino',
+              style: Theme.of(context)
+                  .textTheme
+                  .headlineMedium
+                  ?.copyWith(fontWeight: FontWeight.w900),
+            ),
             const SizedBox(height: 18),
             Expanded(
               child: history.when(
@@ -30,6 +43,8 @@ class HistoryScreen extends ConsumerWidget {
                     : RefreshIndicator(
                         onRefresh: () async {
                           ref.invalidate(workoutHistoryProvider);
+                          ref.invalidate(personalRecordsProvider);
+                          ref.invalidate(weeklyProgressProvider);
                           await ref.read(workoutHistoryProvider.future);
                         },
                         child: ListView.separated(
@@ -69,7 +84,10 @@ class _WorkoutCard extends StatelessWidget {
               Container(
                 width: 44,
                 height: 44,
-                decoration: BoxDecoration(color: AppTheme.neonLime.withValues(alpha: .1), borderRadius: BorderRadius.circular(14)),
+                decoration: BoxDecoration(
+                  color: AppTheme.neonLime.withValues(alpha: .1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 child: Icon(icon, color: AppTheme.neonLime),
               ),
               const SizedBox(width: 12),
@@ -77,13 +95,23 @@ class _WorkoutCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(workout.workoutType == 'interval' ? 'Treino intervalado' : 'Corrida livre', style: const TextStyle(fontWeight: FontWeight.w900)),
+                    Text(
+                      workout.planSessionIndex != null
+                          ? 'Plano 5K · Sessão ${workout.planSessionIndex! + 1}'
+                          : workout.workoutType == 'interval'
+                              ? 'Treino intervalado'
+                              : 'Corrida livre',
+                      style: const TextStyle(fontWeight: FontWeight.w900),
+                    ),
                     const SizedBox(height: 3),
                     Text(shortDate(workout.startedAt), style: const TextStyle(color: Colors.white54, fontSize: 12)),
                   ],
                 ),
               ),
-              Text('${workout.distanceKm.toStringAsFixed(2)} km', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+              Text(
+                '${workout.distanceKm.toStringAsFixed(2)} km',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -93,11 +121,45 @@ class _WorkoutCard extends StatelessWidget {
             children: [
               Expanded(child: _MiniMetric(label: 'Tempo', value: formatDuration(Duration(seconds: workout.durationSeconds)))),
               Expanded(child: _MiniMetric(label: 'Pace', value: '${formatPace(workout.avgPaceMinKm)}/km')),
+              Expanded(child: _MiniMetric(label: 'RPE', value: workout.rpe?.toString() ?? '—')),
               Expanded(child: _MiniMetric(label: 'Kcal', value: workout.calories.toStringAsFixed(0))),
             ],
           ),
-          if (workout.notes != null && workout.notes!.isNotEmpty) ...[
+          if (workout.splits.isNotEmpty) ...[
             const SizedBox(height: 12),
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: EdgeInsets.zero,
+              title: Text('${workout.splits.length} splits registrados', style: const TextStyle(fontWeight: FontWeight.w800)),
+              children: workout.splits.asMap().entries.map((entry) {
+                final split = entry.value;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  child: Row(
+                    children: [
+                      Text('${entry.key + 1}', style: const TextStyle(color: Colors.white54)),
+                      const SizedBox(width: 12),
+                      Text('${split.distanceKm.toStringAsFixed(2)} km'),
+                      const Spacer(),
+                      Text('${formatPace(split.paceMinKm)}/km', style: const TextStyle(fontWeight: FontWeight.w800)),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+          if (workout.autoPausedSeconds > 0) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Auto-pause: ${formatDuration(Duration(seconds: workout.autoPausedSeconds))}',
+                style: const TextStyle(color: Colors.white38, fontSize: 11),
+              ),
+            ),
+          ],
+          if (workout.notes != null && workout.notes!.isNotEmpty) ...[
+            const SizedBox(height: 10),
             Align(alignment: Alignment.centerLeft, child: Text(workout.notes!, style: const TextStyle(color: Colors.white60))),
           ],
         ],
@@ -115,7 +177,7 @@ class _MiniMetric extends StatelessWidget {
   Widget build(BuildContext context) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+          Text(label, style: const TextStyle(color: Colors.white38, fontSize: 10)),
           const SizedBox(height: 3),
           Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
         ],
@@ -132,7 +194,10 @@ class _EmptyHistory extends StatelessWidget {
           children: [
             const Icon(Icons.route_rounded, size: 64, color: AppTheme.neonLime),
             const SizedBox(height: 14),
-            Text('A primeira corrida começa aqui', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+            Text(
+              'A primeira corrida começa aqui',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+            ),
             const SizedBox(height: 6),
             const Text('Seus treinos finalizados aparecerão neste histórico.', textAlign: TextAlign.center),
           ],

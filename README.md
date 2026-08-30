@@ -1,6 +1,8 @@
 # RunForge
 
-Aplicativo mobile Flutter para acompanhamento de corrida com foco em legibilidade durante o treino, persistência local e UX esportiva premium.
+Aplicativo mobile Flutter para acompanhamento de corrida com foco em legibilidade durante o treino, progressão guiada, persistência local e UX esportiva premium.
+
+**Versão atual: 1.1.0**
 
 ## Stack
 
@@ -15,7 +17,12 @@ Aplicativo mobile Flutter para acompanhamento de corrida com foco em legibilidad
 
 - Dashboard com volume semanal/mensal e metas em foco.
 - Corrida livre com cronômetro, GPS, distância, pace atual, pace médio, calorias e splits.
-- Treino intervalado com ciclos corrida/recuperação configuráveis antes do Start.
+- Treino intervalado fechado com **aquecimento + corrida + recuperação + quantidade de ciclos + desaquecimento**.
+- Templates rápidos de intervalado (1/2 iniciante, 2/1 progressão, 5/2 resistência e HIIT curto).
+- Ciclo atual/total, progresso da etapa e progresso total do treino.
+- Encerramento automático do cronômetro ao concluir todo o intervalado.
+- Auto-pause por parada real, com retomada automática ao voltar a se movimentar.
+- Auto Split de 1 km e Split manual.
 - Alertas hápticos + som do sistema nas transições de intervalo.
 - Pause/Resume, Split, Finish e trava de tela por long press.
 - Perfil corporal local: nome, peso, altura, idade e sexo.
@@ -23,9 +30,13 @@ Aplicativo mobile Flutter para acompanhamento de corrida com foco em legibilidad
 - Metas diárias, semanais e mensais por km ou dias treinados.
 - Progresso automático de metas com anel animado e conquista ao atingir o alvo.
 - Checklist pré/pós-treino, itens customizados, reset e swipe para excluir itens próprios.
-- Histórico de treinos com distância, tempo, pace, kcal e notas.
+- Histórico de treinos com distância, tempo, pace, kcal, RPE, splits e notas.
+- RPE pós-treino de 1 a 10 para acompanhar esforço percebido.
+- Plano **Do zero aos 5 km**: 8 semanas / 24 sessões com treino do dia no Dashboard.
+- Tela Progresso com volume das últimas 8 semanas e RPE médio.
+- Recordes pessoais: maior distância, maior duração, melhor pace médio, melhor split de 1 km e melhor 5 km.
 - Dark Mode premium padrão (`#121212` + Neon Lime), com Material 3.
-- SQLite schema v3 com migrações incrementais `onUpgrade`.
+- SQLite schema v4 com migrações incrementais `onUpgrade`, preservando instalações v1-v3.
 
 ## GitHub Actions: compilação automática
 
@@ -144,6 +155,7 @@ Arquivo: `lib/core/database/app_database.dart`
 - **v1:** `users`, `workouts`, `goals`, `checklists`.
 - **v2:** adiciona `avg_speed_kmh` e `intensity` em `workouts`.
 - **v3:** adiciona `completed_at` em `goals` e `position` em `checklists`.
+- **v4 (RunForge 1.1):** adiciona `rpe`, `splits_json`, `plan_session_index`, `template_id` e `auto_paused_seconds` em `workouts`.
 - Instalação nova cria diretamente o schema mais recente.
 - Upgrade executa somente as etapas ausentes dentro da transação do próprio `sqflite`.
 
@@ -207,6 +219,8 @@ lib/
 ├── features/
 │   ├── home/
 │   ├── workout/
+│   ├── plans/
+│   ├── progress/
 │   ├── profile/
 │   ├── goals/
 │   ├── checklist/
@@ -225,14 +239,6 @@ tool/
 - A estimativa de calorias é orientativa. Não substitui calorimetria indireta nem avaliação médica.
 - O `Stopwatch` é a fonte do tempo da sessão, reduzindo drift do `Timer` de atualização da UI.
 
-## Próximos upgrades recomendados
+## Próximas versões
 
-- Assinatura Android automática via GitHub Secrets.
-- Assinatura iOS/TestFlight via App Store Connect.
-- Persistência e desenho da rota em mapa.
-- Auto-pause por velocidade.
-- Cadência via sensores/wearables.
-- Background tracking com foreground service Android + Background Modes no iOS.
-- Exportação CSV/GPX.
-- Planos intervalados salvos como templates.
-- Health Connect / Apple Health.
+As melhorias que ficaram fora da v1.1 estão registradas em [`ROADMAP.md`](ROADMAP.md), organizadas por versão: mapa/rota, voz, exportação GPX/CSV, check-in de fadiga/dor, Health Connect/Apple Health, wearables, backup e tracking em background.
