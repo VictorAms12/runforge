@@ -6,7 +6,7 @@ class AppDatabase {
 
   static final AppDatabase instance = AppDatabase._();
   static const _dbName = 'runforge.db';
-  static const version = 3;
+  static const version = 4;
   Database? _database;
 
   Future<Database> get database async {
@@ -47,7 +47,12 @@ class AppDatabase {
         avg_speed_kmh REAL NOT NULL DEFAULT 0,
         intensity TEXT NOT NULL DEFAULT 'moderate',
         notes TEXT,
-        workout_type TEXT NOT NULL DEFAULT 'free'
+        workout_type TEXT NOT NULL DEFAULT 'free',
+        rpe INTEGER,
+        splits_json TEXT NOT NULL DEFAULT '[]',
+        plan_session_index INTEGER,
+        template_id TEXT,
+        auto_paused_seconds INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
@@ -113,6 +118,21 @@ class AppDatabase {
             'ALTER TABLE checklists ADD COLUMN position INTEGER NOT NULL DEFAULT 0',
           );
           break;
+        case 4:
+          await db.execute('ALTER TABLE workouts ADD COLUMN rpe INTEGER');
+          await db.execute(
+            "ALTER TABLE workouts ADD COLUMN splits_json TEXT NOT NULL DEFAULT '[]'",
+          );
+          await db.execute(
+            'ALTER TABLE workouts ADD COLUMN plan_session_index INTEGER',
+          );
+          await db.execute(
+            'ALTER TABLE workouts ADD COLUMN template_id TEXT',
+          );
+          await db.execute(
+            'ALTER TABLE workouts ADD COLUMN auto_paused_seconds INTEGER NOT NULL DEFAULT 0',
+          );
+          break;
       }
     }
     await _ensureIndexes(db);
@@ -124,6 +144,9 @@ class AppDatabase {
     );
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_goals_end_date ON goals(end_date)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_workouts_plan_session ON workouts(plan_session_index)',
     );
   }
 
