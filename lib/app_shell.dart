@@ -5,6 +5,7 @@ import 'features/checklist/presentation/checklist_screen.dart';
 import 'features/goals/presentation/goals_screen.dart';
 import 'features/history/presentation/history_screen.dart';
 import 'features/home/presentation/home_screen.dart';
+import 'features/progress/presentation/progress_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -18,6 +19,7 @@ class _AppShellState extends State<AppShell> {
 
   static const _pages = [
     HomeScreen(),
+    ProgressScreen(),
     GoalsScreen(),
     ChecklistScreen(),
     HistoryScreen(),
@@ -44,10 +46,23 @@ class _AppShellState extends State<AppShell> {
         selectedIndex: _index,
         onDestinationSelected: (value) => setState(() => _index = value),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.dashboard_rounded), label: 'Início'),
+          NavigationDestination(
+            icon: Icon(Icons.dashboard_rounded),
+            label: 'Início',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.insights_rounded),
+            label: 'Progresso',
+          ),
           NavigationDestination(icon: Icon(Icons.flag_rounded), label: 'Metas'),
-          NavigationDestination(icon: Icon(Icons.checklist_rounded), label: 'Checklist'),
-          NavigationDestination(icon: Icon(Icons.history_rounded), label: 'Histórico'),
+          NavigationDestination(
+            icon: Icon(Icons.checklist_rounded),
+            label: 'Checklist',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.history_rounded),
+            label: 'Histórico',
+          ),
         ],
       ),
     );
